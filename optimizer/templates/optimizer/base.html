@@ -1,0 +1,36 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PortfolioWizard</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.png' %}" >
+    <link href="https://bootswatch.com/5/lux/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #1A152F;
+            color: white;
+        }
+        .logo-img {
+            max-width: 300px; /* Adjust the size as needed */
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <nav class="navbar navbar-expand-lg" style="background-color:#1A152F;">
+            <div class="container-fluid" style="margin-left: 4%;">
+                <a class="navbar-brand" style="color:white" href="/">
+                    <img src="{% static 'images/logo.png' %}" class="img-fluid logo-img" alt="Logo">
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    {% block content %}
+    {% endblock content %}
+</body>
+</html>

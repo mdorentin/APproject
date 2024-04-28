@@ -1,0 +1,140 @@
+{% extends 'optimizer/base.html' %}
+{% block content %}
+
+<style>
+    .form-container {
+        width: 75%; /* Adjusted width of the container */
+        margin: auto; /* Center the container */
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+    }
+    .form-group input[type="text"],
+    .form-group select,
+    .form-group input[type="range"],
+    .form-group input[type="number"] {
+        width: calc(100% - 12px); /* Adjusted width with padding */
+        padding: 5px;
+        border-radius: 3px;
+        border: 1px solid #ccc;
+        box-sizing: border-box;
+    }
+    .form-group.benchmark,
+    .form-group.rebalance,
+    .form-group.money {
+        width: 100%; /* Make these fields full width */
+        max-width: none; /* Remove max-width */
+    }
+    .slider-value {
+        display: inline-block;
+        margin-left: 5px;
+    }
+    .form-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 15px; /* Add spacing between rows */
+    }
+    .form-row .form-group {
+        flex: 1 0 auto; /* Adjusted width with added space */
+        margin-right: 10px; /* Add margin between elements */
+    }
+    .form-row .form-group:last-child {
+        margin-right: 0; /* Remove margin for the last element */
+    }
+    .stock-row {
+        margin-bottom: 15px;
+    }
+    .rounded-container {
+        border-radius: 10px;
+        background-color: #242037; /* Updated background color */
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    .big-input {
+        width: 100%; /* Make the input field full width */
+        max-width: none; /* Remove max-width */
+    }
+    
+    /* Style for forms.NumberInput */
+    input[type="number"] {
+        appearance: none; /* Remove default styling */
+        background-color: #fff; /* Background color */
+        border: 1px solid #ccc; /* Border */
+        border-radius: 3px; /* Border radius */
+        padding: 5px; /* Padding */
+        width: 100%; /* Full width */
+        box-sizing: border-box; /* Box sizing */
+    }
+
+    /* Media query for small screens */
+    @media (max-width: 767px) {
+        .form-group input[type="text"],
+        .form-group select,
+        .form-group input[type="range"],
+        .form-group input[type="number"] {
+            width: 100%; /* Adjust width for small screens */
+        }
+    }
+</style>
+
+<div class="rounded-container">
+    <div class="form-container">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="stock-row">
+                <div class="form-group">
+                    <label for="{{ form.stocks.id_for_label }}">Stock tickers <i>(separate with a comma)</i></label>
+                    {{ form.stocks }}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;"> <!-- Each one 1/3 -->
+                    <label for="{{ form.optimization_method.id_for_label }}">Objective</label>
+                    {{ form.optimization_method }}
+                </div>
+                <div class="form-group" style="flex: 1;"> <!-- Each one 1/3 -->
+                    <label for="{{ form.money.id_for_label }}">Budget</label>
+                    {{ form.money }}
+                </div>
+                <div class="form-group" style="flex: 1;"> <!-- Each one 1/3 -->
+                    <label for="{{ form.rebalance_freq.id_for_label }}">Rebalance</label>
+                    {{ form.rebalance_freq }}
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;"> <!-- Each one 1/4 -->
+                    <label for="lookback">Lookback:<span class="slider-value" id="lookback-value">5</span></label>
+                    <input type="range" id="lookback" name="lookback" min="1" max="10" value="5" step="1" onchange="updateSliderValue(this.value, 'lookback-value')">
+                </div>
+                <div class="form-group" style="flex: 1;"> <!-- Each one 1/4 -->
+                    <label for="risk_aversion">Risk aversion:<span class="slider-value" id="risk_aversion-value">5</span></label>
+                    <input type="range" id="risk_aversion" name="risk_aversion" min="1" max="10" value="5" step="1" onchange="updateSliderValue(this.value, 'risk_aversion-value')">
+                </div>
+                <div class="form-group" style="flex: 1;"> <!-- Each one 1/4 -->
+                    <label for="{{ form.risk_free.id_for_label }}">Risk-free (%)</label>
+                    {{ form.risk_free }}
+                </div>
+                <div class="form-group" style="flex: 1;"> <!-- Each one 1/4 -->
+                    <label for="{{ form.benchmark.id_for_label }}">Benchmark</label>
+                    {{ form.benchmark }}
+                </div>
+            </div>
+
+            <button class="btn btn-primary" style="background-image: linear-gradient(to right, #fd7754 0%, #a021d3 100%); border-radius: 5px;" type="submit">Optimize</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function updateSliderValue(value, elementId) {
+        document.getElementById(elementId).innerText = value;
+    }
+</script>
+
+{% endblock content %}
