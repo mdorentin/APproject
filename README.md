@@ -38,16 +38,12 @@ Clone the project and install the virtual environment with the necessary package
 ```sh
 git clone https://github.com/mdorentin/APproject.git
 cd APproject
-pip install virtualenv (if you don't already have virtualenv installed)
+pip install virtualenv
 virtualenv venv
-source venv/bin/activate
+cd venv\Scripts
+activate
+cd ..\..
 pip install -r requirements.txt
-```
-
-How the virtual environment is ready and the repository cloned:
-
-```sh
-cd APproject
 python manage.py runserver
 ```
 ## Disclaimer
