@@ -48,3 +48,5 @@ How the virtual environment is ready and the repository cloned:
 cd <repo>
 python manage.py runserver
 ```
+## Disclaimer
+This web application provides portfolio optimization results for educational purposes only. It does not offer financial advice, and users should seek professional advice before making investment decisions. Past performance is not indicative of future results, and all investments carry risks.
