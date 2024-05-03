@@ -58,6 +58,42 @@
         width: 100%; /* Make the input field full width */
         max-width: none; /* Remove max-width */
     }
+    .popup-container {
+        background-color: white;
+        display: none;
+        position: fixed;
+        top: 50%; /* Center vertically */
+        left: 50%; /* Center horizontally */
+        transform: translate(-50%, -50%);
+        border: 1px solid #ccc;
+        padding: 20px;
+        border-radius: 5px;
+        z-index: 9999;
+        width: 80%;
+        overflow-y: auto; /* Add vertical scrollbar */
+        max-height: 80vh; /* Limit the height and enable scrolling */
+        padding-right: 40px; /* Add space for the close button */
+        box-sizing: border-box; /* Ensure padding is included in width */
+    }
+
+    .close-btn {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        cursor: pointer;
+        z-index: 10000; /* Ensure it's above the popup */
+    }
+
+
+
+
+    .info-btn {
+        color: white;
+        background: none;
+        border: none;
+        font-size: 14px;
+        cursor: pointer;
+    }
     
     /* Style for forms.NumberInput */
     input[type="number"] {
@@ -85,16 +121,22 @@
     <div class="form-container">
         <form method="POST">
             {% csrf_token %}
+            {% if error_msg %}
+                <div class="alert alert-danger">{{ error_msg }}</div>
+            {% endif %}
             <div class="stock-row">
                 <div class="form-group">
                     <label for="{{ form.stocks.id_for_label }}">Stock tickers <i>(separate with a comma)</i></label>
                     {{ form.stocks }}
+                    {% if form.stocks.errors %}
+                        <div class="alert alert-danger">{{ form.stocks.errors }}</div>
+                    {% endif %}
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group" style="flex: 1;"> <!-- Each one 1/3 -->
-                    <label for="{{ form.optimization_method.id_for_label }}">Objective</label>
+                    <label for="{{ form.optimization_method.id_for_label }}">Objective<button class="info-btn" onclick="openPopup('objective-popup')">ℹ️</button></label>
                     {{ form.optimization_method }}
                 </div>
                 <div class="form-group" style="flex: 1;"> <!-- Each one 1/3 -->
@@ -102,19 +144,15 @@
                     {{ form.money }}
                 </div>
                 <div class="form-group" style="flex: 1;"> <!-- Each one 1/3 -->
-                    <label for="{{ form.rebalance_freq.id_for_label }}">Rebalance</label>
+                    <label for="{{ form.rebalance_freq.id_for_label }}">Rebalancing</label>
                     {{ form.rebalance_freq }}
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group" style="flex: 1;"> <!-- Each one 1/4 -->
-                    <label for="lookback">Lookback:<span class="slider-value" id="lookback-value">5</span></label>
-                    <input type="range" id="lookback" name="lookback" min="1" max="10" value="5" step="1" onchange="updateSliderValue(this.value, 'lookback-value')">
-                </div>
-                <div class="form-group" style="flex: 1;"> <!-- Each one 1/4 -->
-                    <label for="risk_aversion">Risk aversion:<span class="slider-value" id="risk_aversion-value">5</span></label>
-                    <input type="range" id="risk_aversion" name="risk_aversion" min="1" max="10" value="5" step="1" onchange="updateSliderValue(this.value, 'risk_aversion-value')">
+                    <label for="risk_aversion">Risk aversion:<span class="slider-value" id="risk_aversion-value">1</span></label>
+                    <input type="range" id="risk_aversion" name="risk_aversion" min="1" max="10" value="1" step="1" onchange="updateSliderValue(this.value, 'risk_aversion-value')">
                 </div>
                 <div class="form-group" style="flex: 1;"> <!-- Each one 1/4 -->
                     <label for="{{ form.risk_free.id_for_label }}">Risk-free (%)</label>
@@ -129,12 +167,65 @@
             <button class="btn btn-primary" style="background-image: linear-gradient(to right, #fd7754 0%, #a021d3 100%); border-radius: 5px;" type="submit">Optimize</button>
         </form>
     </div>
+
+
+
+    <div id="objective-popup" class="popup-container">
+        <span class="close-btn" onclick="closePopup('objective-popup')">✖️</span>
+        <h4>Equally Weighted Portfolio</h4>
+        <p style="color:black;  text-align: justify;">An equally-weighted portfolio involves allocating an equal amount of investment capital to each asset within the portfolio. This approach aims to provide a balanced exposure across all assets, regardless of their individual characteristics or market conditions.  </p>
+        <h4>Sharpe Ratio Maximization</h4>
+        <p style="color:black;  text-align: justify; ">Maximum Sharpe ratio optimization is about finding the best balance between returns and risk in your investment portfolio. It helps you identify the mix of assets that aims to maximize returns relative to the level of risk you're comfortable with. </p>
+        <h4>Volatility Minimization</h4>
+        <p style="color:black;  text-align: justify;">Volatility minimization focuses on decreasing the variability in investment returns over time. It aims to create a more stable and predictable investment experience by reducing the frequency and magnitude of market fluctuations. </p>
+        <h4>Conditional Value at Risk (CVaR) Minimization</h4>
+        <p style="color:black;  text-align: justify;">Conditional Value at Risk (CVaR) minimization is a risk management technique that focuses on reducing the likelihood and magnitude of extreme losses in an investment portfolio. It calculates the expected value of potential losses beyond a certain threshold and aims to minimize this value. </p>
+        <h4>Quadratic Utility Maximization</h4>
+        <p style="color:black;  text-align: justify;">Quadratic Utility Maximization is an investment strategy that aims to optimize returns while considering investor preferences and risk tolerance. It involves maximizing a quadratic utility function, which captures the investor's satisfaction or utility derived from their portfolio's performance. </p>
+        <h4>Hierarchical Risk Parity (HRP)</h4>
+        <p style="color:black;  text-align: justify;">Hierarchical Risk Parity (HRP) is a portfolio construction technique that allocates assets based on their risk contribution to the overall portfolio. It divides assets into clusters based on their correlation and then allocates weights to each cluster and asset within it to achieve balanced risk exposure. </p>
+    </div>
+
 </div>
 
 <script>
     function updateSliderValue(value, elementId) {
         document.getElementById(elementId).innerText = value;
     }
+    function openPopup(popupId) {
+        var popup = document.getElementById(popupId);
+        if (popup) {
+            popup.style.display = "block";
+        }
+    }
+
+    function closePopup(popupId) {
+        var popup = document.getElementById(popupId);
+        if (popup) {
+            popup.style.display = "none";
+        }
+    }
+    document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("keydown", function(event) {
+            // Check if the pressed key is Enter
+            if (event.key === "Enter") {
+                // Check if the active element is within the form
+                var activeElement = document.activeElement;
+                var form = document.getElementById("investment-form");
+
+                if (form && activeElement && form.contains(activeElement)) {
+                    // Allow form submission with Enter
+                    return true;
+                } else {
+                    // Prevent opening the popup on Enter press
+                    event.preventDefault();
+                    return false;
+                }
+            }
+        });
+    });
+</script>
+
 </script>
 
 {% endblock content %}

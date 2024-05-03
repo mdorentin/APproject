@@ -4,7 +4,8 @@ import numpy as np
 import yfinance as yf
 import datetime as dt
 
-from pypfopt import risk_models, expected_returns, objective_functions, HRPOpt, plotting
+from pypfopt import risk_models, expected_returns, objective_functions, HRPOpt
+from .plotting import plot_efficient_frontier
 from pypfopt.efficient_frontier import EfficientFrontier, EfficientCVaR
 from pypfopt.discrete_allocation import DiscreteAllocation
 
@@ -33,17 +34,17 @@ class Optimizer:
         * money (int): Amount of money available for investment. Also the starting portfolio value during the backtest.
     '''
     
-    def __init__(self, stocks, optimization_method, lookback, risk_aversion, risk_free, money):
+    def __init__(self, stocks, optimization_method, risk_aversion, risk_free, money):
         '''
         Initializes the Optimizer with user-defined parameters.
         '''
         self.stocks = stocks
         self.optimization_method = optimization_method
-        self.lookback = lookback
         self.risk_aversion = risk_aversion
         self.risk_free = risk_free
         self.money = money
-    
+        
+
     def get_data(self):
         '''
         Fetches historical stock price data for the specificed stocks.
@@ -52,18 +53,31 @@ class Optimizer:
         Returns:
             * pandas.DataFrame: Historical stock price data.
         '''
-        today = dt.date.today()
-        start = today.replace(year=today.year - (self.lookback + 3))
-        
+        today = dt.datetime.today().date()
+        ## Ideally i want to backtest the strategy on the last 10 years.
+        ## The first optimization that occurs will be based on the last three years available. That's why we add three more years.
+        start = today.replace(year = today.year - (10+3))
         try:
-            data = yf.download(self.stocks, start=start, progress=False)['Close']        
-            if data.iloc[-1,:].isna().any():
-                data = data.iloc[:-1,:]
+            data = yf.download(self.stocks, start=start, progress=False).Close.dropna()
                 
             return data
         
         except Exception as e:
             print(f'An error occured during the data import: {e}')
+            
+    def get_lookback(self, data):
+        '''
+        Computes what is the lookback period. If we have more than 13 years of data available, the lookback is set to 10.
+        Otherwise, it is the number of year of available data minus 3 (out of sample).
+        '''
+        start = data.index.min().date()
+        end = data.index.max().date()
+        lookback = end.year - start.year - 3
+
+        if end.month < start.month or (end.month == start.month and end.day < start.day):
+                lookback -= 1
+
+        return lookback
     
     def get_logret(self, data):
         '''
@@ -129,26 +143,30 @@ class Optimizer:
                 weights = ef.max_sharpe(risk_free_rate=self.risk_free)
             except Exception as e:
                 print(f'An error occured during the maximum Sharpe Ratio Optimization: {e}')
+                return None
         
         elif self.optimization_method == 'min_vol':
             try:
                 weights = ef.min_volatility()
             except Exception as e:
                 print(f'An error occured during the minimium Volatility Optimization: {e}')
-        
+                return None
+            
         elif self.optimization_method == 'max_quad':
             try:
                 weights = ef.max_quadratic_utility(risk_aversion=self.risk_aversion)
             except Exception as e:
                 print(f'An error occured during the maximum quadratic utility function optimization: {e}')    
-        
+                return None
+            
         elif self.optimization_method == 'min_cvar':
             try:
                 ef = EfficientCVaR(mu, covmat)
                 weights = ef.min_cvar()
             except Exception as e:
                 print(f'An error occured during the minimum CVaR optimization: {e}')  
-        
+                return None
+            
         elif self.optimization_method == 'hrp':
             try:
                 returns = expected_returns.returns_from_prices(data)
@@ -157,7 +175,7 @@ class Optimizer:
                 weights = hrp.clean_weights()
             except Exception as e:
                 print(f'An error occured during the Hierarchial Risk Parity Optimization: {e}')
-        
+                return None
         else:
             print('Please insert a valid optimization method!')
             
@@ -176,8 +194,7 @@ class Optimizer:
             discrete = pd.DataFrame.from_dict(da.lp_portfolio()[0], orient='index', columns=[latest_prices.name])
             return discrete
         except Exception as e:
-            print(f'An error occured while computation the discrete number of stocks units to buy for each stock: {e}')
-        
+            print(f'An error occured while computation the discrete number of stocks units to buy for each stock: {e}')      
 
 class Backtester:
     '''
@@ -190,10 +207,11 @@ class Backtester:
         * money (int): Amount of money available for investment. Also the starting portfolio value during the backtest.
         * benchmark (str): Benchmark ETF or Indices to compare with the performance of our portfolio.
     '''
-    def __init__(self, optimization_method, lookback, rebalance_freq, money, risk_aversion, risk_free, benchmark):
+    def __init__(self, stocks, optimization_method, lookback, rebalance_freq, money, risk_aversion, risk_free, benchmark):
         '''
         Initializes the Backtester and the Optimizer with user-defined parameters.
         '''
+        self.stocks = stocks
         self.optimization_method = optimization_method
         self.lookback = lookback
         self.rebalance_freq = rebalance_freq
@@ -210,11 +228,11 @@ class Backtester:
             * List: List of all the subdataframes
         '''
         df_list = []
-        total_rebalances = int(self.lookback * self.rebalance_freq + 1)
+        total_rebalances = int(self.lookback * self.rebalance_freq + 2)
         begin = data.index.min()
         
         try:
-            for i in range(total_rebalances):
+            for i in range(total_rebalances + 3):
                 end_idx = int((252 * 3) + (252/self.rebalance_freq) * i)
                 end_date = data[:end_idx].index.max()
                 df = data[data.index.isin(pd.date_range(begin, end_date))]
@@ -233,26 +251,26 @@ class Backtester:
             * pandas.DataFrame: Dataframe with the % weights every time we rebalanced our portfolio.
         '''
         weights_df = []
-        stocksticker = df_list[0].columns
         try:
-            optimizer = Optimizer(stocks=stocksticker, optimization_method=self.optimization_method, lookback=self.lookback,
+            optimizer = Optimizer(stocks=self.stocks, optimization_method=self.optimization_method,
                                   risk_aversion=self.risk_aversion, risk_free=self.risk_free, money=self.money)
         except Exception as e:
             print(f'An error occured while initializing the Optimizer class: {e}')
+            return None
             
         try:   
-            for i in range(len(df_list)):
-                data = df_list[i]
+            for data in df_list:
                 covmat = optimizer.get_covmat(data)
                 mu = optimizer.get_mu(data)
                 weights = optimizer.optimize(data, covmat, mu)
                 weights = pd.DataFrame(weights.items(), columns=['Ticker', data.index.max()]).set_index('Ticker')[data.index.max()]
 
                 weights_df.append(weights)
-
-            return pd.concat(weights_df, axis=1).fillna(0)
+                
+            return pd.concat(weights_df, axis=1).fillna(0).T.drop_duplicates().T
         except Exception as e:
             print(f'An error occured while optimizing all the datasubframes: {e}')
+            return None
     
     def alphas_list(self, data, weights_df):
         '''
@@ -262,15 +280,17 @@ class Backtester:
             * List: List of all the subdataframes
         '''
         alphas_sub = []
+    
         try:
             for i in range(len(weights_df.T)-1):
-                start=weights_df.iloc[:,i].name
-                end= weights_df.iloc[:,i+1].name - dt.timedelta(days=1)
+                start = weights_df.columns[i]
+                end = weights_df.columns[i+1] - dt.timedelta(days=1)
                 dates = data.index[data.index.isin(pd.date_range(start,end))]
                 sub_df = pd.DataFrame(index=weights_df.index, columns=dates)
                 sub_df.iloc[:,0] = weights_df.iloc[:,i]
 
                 alphas_sub.append(sub_df)
+                
                 
             return alphas_sub
         except Exception as e:
@@ -282,21 +302,20 @@ class Backtester:
         
         Returns:
             * pandas.DataFrame: Dataframe with the alphas from the beginning until the end.
-        '''
+            
+        '''    
         try:
             alphas_df = pd.DataFrame()
             
-            for i in range(len(alphas_sub)):
-                sub = alphas_sub[i].copy()
-
-                begin = sub.iloc[:, 1].name
-                end = sub.iloc[:, -1].name
-                logrets = log_ret[log_ret.index.isin(pd.date_range(begin, end))].T
+            for sub in alphas_sub:
+                begin = sub.columns.min()
+                end = sub.columns.max()
+                logrets = log_ret[log_ret.index.isin(pd.date_range(begin, end))]
 
                 for date in range(1, len(sub.columns)):
                     for stock in range(len(sub)):
-                        stock_ret = logrets.iloc[stock, date-1]
-                        pf_ret = sub.iloc[:, date-1] @ logrets.iloc[:, date-1]
+                        stock_ret = logrets.iloc[date-1, stock]
+                        pf_ret = sub.iloc[:, date-1] @ logrets.iloc[date-1]
                         previous_alpha = sub.iloc[stock, date-1]
                         sub.iloc[stock, date] = previous_alpha * ((1 + stock_ret) / (1 + pf_ret))
 
@@ -312,8 +331,8 @@ class Backtester:
         Returns:
             * pandas.Series: Series with the daily performance logreturn of our portfolio.
         '''
-        start = alphas_df.columns[0]
-        end = alphas_df.columns[-1]
+        start = alphas_df.iloc[:,0].name
+        end = alphas_df.iloc[:,-1].name
 
         logret = log_ret[log_ret.index.isin(pd.date_range(start, end))].T
         try:
@@ -322,7 +341,7 @@ class Backtester:
         except Exception as e:
             print(f'An error occured while computing the ex-post performances: {e}')
     
-    def benchmark_data(self, data, benchmark):
+    def benchmark_data(self, expost_perf, benchmark):
         '''
         Fetches the benchmark historical data price and computes the log returns.
         
@@ -330,8 +349,9 @@ class Backtester:
             * pandas.Series: Series with the daily performance logreturn of the benchmark.
         '''
         try:
-            start = data.index.min()
-            df = yf.download(benchmark, start, progress=False)['Close']
+            start = expost_perf.index.min() - dt.timedelta(days=1)
+            end = expost_perf.index.max() + dt.timedelta(days=1)
+            df = yf.download(benchmark, start, end, progress=False).Close
 
         except Exception as e:
             print(f'An error occured during the benchmark data import: {e}')
@@ -341,7 +361,6 @@ class Backtester:
             return logret
         except Exception as e:
             print(f'An error occured while computing the benchmark log returns: {e}')
-            
 
 class Plotter():
     '''
@@ -352,21 +371,20 @@ class Plotter():
     def __init__(self):
         pass
         
-    def pie_plot(self, weights_df):
+    def pie_plot(self, last_weights):
         '''
         Plot the pie chart showing the weights of our portfolio.
         
         Returns:
             * plotly.Figure: Pie chart.
         '''
-        last_weights = weights_df.iloc[:,-1]
         fig = px.pie(last_weights.values, values=0, names=last_weights.index)
 
         fig.update_traces(textposition='inside', 
-                              textinfo='label',
-                              hoverinfo='percent',
-                              hovertemplate='%{percent:.2%} (%{value})',  # Set hoverinfo as percentage with 2 decimals
-                              textfont=dict(color='white'))  # Set text color to white
+                          textinfo='label',
+                          hoverinfo='percent',
+                          hovertemplate='%{percent:.2%} (%{value})',
+                          textfont=dict(color='white'))  # Set text color to white
 
         fig.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)', 'paper_bgcolor': 'rgba(0, 0, 0, 0)'})
 
@@ -374,7 +392,6 @@ class Plotter():
         fig.update_layout(title='Pie Chart of Portfolio Weights')
 
         return plot(fig, output_type='div')
-        #return fig
     
     def portfolio_vs_benchmark(self, expost_perf, benchmark_ret):
         '''
@@ -388,12 +405,12 @@ class Plotter():
         cum_ret = pd.concat([pf_cumprod, bench_cumprod], axis=1).dropna()
         cum_ret.columns = ['Portfolio', 'Benchmark']
         
-        fig = px.line(cum_ret, labels={'index': 'Index', 'value': 'Cumulative Return', 'variable': ''})
+        fig = px.line(cum_ret, labels={'index': 'Year', 'value': 'Cumulative Return', 'variable': ''})
         fig.update_layout(legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01))
         fig.update_layout({'plot_bgcolor': 'rgba(0, 0, 0, 0)', 'paper_bgcolor': 'rgba(0, 0, 0, 0)'})
 
         # Set label color to white
-        fig.update_layout(xaxis=dict(title=dict(text='Index', font=dict(color='white'))))
+        fig.update_layout(xaxis=dict(title=dict(text='Year', font=dict(color='white'))))
         fig.update_layout(yaxis=dict(title=dict(text='Cumulative Return', font=dict(color='white'))))
 
         # Set text color to white
@@ -411,7 +428,6 @@ class Plotter():
         fig.update_layout(title='Portfolio vs. Benchmark Cumulative Returns', font=dict(color='white'))
 
         return plot(fig, output_type='div')
-        #return fig
     
     def plot_efficient_frontier(self, mu, covmat, weights_df):
         '''
@@ -437,7 +453,7 @@ class Plotter():
         ######### Plot the efficient frontier #########
         ef = EfficientFrontier(mu, covmat)
 
-        plotting.plot_efficient_frontier(ef, show_assets=False, plot_assets=False, plot_star=False)
+        plot_efficient_frontier(ef, show_assets=False, plot_assets=False, plot_star=False)
 
         ######### Create an empty figure ########
         fig = go.Figure()
@@ -478,112 +494,82 @@ class Plotter():
 
         return plot(fig, output_type='div')
     
-    def portfolio_metrics(self, expost_perf, risk_free, money):
+    def metrics_table(self, expost_perf, benchmark_ret, risk_free, money):
         '''
         Creates the table that will show the portfolio metrics to the user.
         
         Returns:
             * pandas.DataFrame: Portfolio table metrics
         '''
+        def metrics(data, risk_free, money):
+            '''
+            Computes the metrics based on the log returns data given.
+            '''
+            #ANNUAL EXPECTED RETURN
+            expected_daily_return = data.mean()
+            expected_annual_return = expected_daily_return * 252
 
-        #EXPECTED ANNUAL RETURN
-        expected_daily_return = expost_perf.mean()
-        expected_annual_return = expected_daily_return * 252
+            #ANNUAL VOLATILITY
+            daily_volatility = np.sqrt(((data - expected_daily_return) ** 2).mean())
+            annual_volatility = np.sqrt(252) * daily_volatility
 
-        #ANNUAL VOLATILITY
-        daily_volatility = np.sqrt(((expost_perf - expected_daily_return) ** 2).mean())
-        annual_volatility = np.sqrt(252) * daily_volatility
+            #SHARPE RATIO
+            sharpe_ratio = (expected_annual_return - risk_free)/ annual_volatility
 
-        #SHARPE RATIO
-        sharpe_ratio = (expected_annual_return - risk_free)/ annual_volatility
+            #MAX DRAWDOWNS
+            cumprod_ret = (1 + data).cumprod()
+            peaks = cumprod_ret.cummax()
+            drawdowns = ((cumprod_ret - peaks) / peaks).min()
 
-        #MAXIMUM DRAWDOWN
-        cumprod_ret = (1 + expost_perf).cumprod()
-        peaks = cumprod_ret.cummax()
-        drawdowns = ((cumprod_ret - peaks) / peaks).min()
+            #IF INVESTED {LOOKBACK} YEARS AGO
+            end_money = np.round(money * cumprod_ret.iloc[-1],0)
 
-        #IF INVESTED {LOOKBACK} YEARS AGO
-        end_money = np.round(money * cumprod_ret.iloc[-1],0)
+            #CLEAN IT
+            expected_annual_return = format(expected_annual_return, ".2%")
+            annual_volatility = format(annual_volatility, ".2%")
+            drawdowns = format(drawdowns, ".2%")
+            sharpe_ratio = format(sharpe_ratio, ".2f")
+            end_money = '${:,.0f}'.format(end_money)
 
-        ## Reformatting to make it look better
-        expected_annual_return = format(expected_annual_return, ".2%")
-        annual_volatility = format(annual_volatility, ".2%")
-        drawdowns = format(drawdowns, ".2%")
-        sharpe_ratio = format(sharpe_ratio, ".2f")
-        end_money = '${:,.0f}'.format(end_money)
+            #CREATES THE TABLE
+            table = pd.DataFrame([expected_annual_return,annual_volatility,sharpe_ratio,drawdowns,end_money],
+                                         index=['Expected Annual Return','Annual Volatility','Sharpe Ratio','Maximum Drawdown',
+                                                f'Valuation if invested in {expost_perf.index.min().year}'])
 
-        table_metrics = pd.DataFrame([expected_annual_return,annual_volatility,sharpe_ratio,drawdowns,end_money],
-                                     index=['Expected Annual Return','Annual Volatility','Sharpe Ratio','Maximum Drawdown',
-                                            f'Valuation if invested in {expost_perf.index.min().year}'],
-                                     columns=['Optimized Portfolio'])
-
-
-        table_metrics
-
-        return table_metrics
-    
-    def benchmark_metrics(self, expost_perf, benchmark_ret, risk_free, money):
-        '''
-        Creates the table that will show the benchmark metrics to the user.
+            return table
         
-        Returns:
-            * pandas.DataFrame: Benchmark table metrics
-        '''
-
-        expected_daily_return = benchmark_ret.mean()
-        expected_annual_return = expected_daily_return * 252
-
-        #ANNUAL VOLATILITY
-        daily_volatility = np.sqrt(((benchmark_ret - expected_daily_return) ** 2).mean())
-        annual_volatility = np.sqrt(252) * daily_volatility
-
-        #SHARPE RATIO
-        sharpe_ratio = (expected_annual_return - risk_free)/ annual_volatility
-
-        #MAXIMUM DRAWDOWN
-        cumprod_ret = (1 + benchmark_ret).cumprod()
-        peaks = cumprod_ret.cummax()
-        drawdowns = ((cumprod_ret - peaks) / peaks).min()
-
-        #IF INVESTED {LOOKBACK} YEARS AGO
-        end_money = np.round(money * cumprod_ret.iloc[-1],0)
-
-        ## Reformatting to make it look better
-        expected_annual_return = format(expected_annual_return, ".2%")
-        annual_volatility = format(annual_volatility, ".2%")
-        drawdowns = format(drawdowns, ".2%")
-        sharpe_ratio = format(sharpe_ratio, ".2f")
-        end_money = '${:,.0f}'.format(end_money)
-
-        table_metrics = pd.DataFrame([expected_annual_return,annual_volatility,sharpe_ratio,drawdowns,end_money],
-                             index=['Expected Annual Return','Annual Volatility','Sharpe Ratio','Maximum Drawdown',
-                                    f'Valuation if invested in {expost_perf.index.min().year}'],
-                             columns=['Benchmark'])
-
-        return table_metrics
+        portfolio_table = metrics(expost_perf, risk_free, money)
+        benchmark_table = metrics(benchmark_ret, risk_free, money)
+        metrics_table = pd.merge(portfolio_table, benchmark_table, right_on=benchmark_table.index, left_on=portfolio_table.index)
+        metrics_table.rename(columns={'key_0': 'metrics', '0_x': 'Optimized Portfolio', '0_y': 'Benchmark'}, inplace=True)
+        metrics_table = metrics_table.set_index('metrics').style.set_table_styles([
+            {'selector': 'td', 'props': [('text-align', 'center')]},
+            {'selector': '.col_heading', 'props': [('text-align', 'center'), ('width', '150px')]},
+            {'selector': '.row_heading', 'props': [('text-align', 'left')]},
+            {'selector': '.index_name', 'props': [('text-align', 'left')]}
+        ])
+        return metrics_table
     
-    def portfolio_alloc_recap(self, weights_df, discrete):
+    def portfolio_alloc_recap(self, last_weights, discrete, data_df):
         '''
         Creates the table that will show the company's ticker, name, sector and finally weights in % and also as a quantity of stock to purchase.
         
         Returns:
             * pandas.DataFrame: Portfolio recap
         '''
-        df = pd.read_csv("optimizer/data3.csv", index_col=0)
+        x = data_df.copy().set_index('ticker')
+        x = x[x.index.isin(last_weights.index)].iloc[:,:2]
+        x['Weights'] = np.round(last_weights * 100,2)
+        x['Shares'] = discrete
+        x = x.sort_values(by='Weights', ascending=False).iloc[:,1:]
+        x['Weights'] = x['Weights'].astype(str) + '%'
+        x['Shares'] = x['Shares'].fillna(0).astype(int)
 
-        recap_table = pd.DataFrame(index=weights_df.index, columns=['Company Name', 'Weights', 'Shares'])
+        x = x.style.set_table_styles([
+            {'selector': 'td', 'props': [('text-align', 'center')]},
+            {'selector': '.col_heading', 'props': [('text-align', 'center'), ('width', '150px')]},
+            {'selector': '.row_heading', 'props': [('text-align', 'left')]},
+            {'selector': '.index_name', 'props': [('text-align', 'left')]}
+        ])
 
-        # Assign values to columns using loc accessor
-        recap_table.loc[:, 'Company Name'] = df.loc[recap_table.index].iloc[:, 0].values
-        recap_table.loc[:, 'Weights'] = np.round(weights_df.iloc[:, -1].values * 100, 2)
-        recap_table.loc[:, 'Shares'] = discrete
-
-        recap_table = recap_table.sort_values(by='Weights', ascending=False)
-
-        recap_table['Weights'] = recap_table['Weights'].astype(str) + '%'
-
-        if recap_table.Shares.isna().any():
-            recap_table['Shares'] = recap_table['Shares'].fillna(0)
-        
-
-        return recap_table
+        return x
