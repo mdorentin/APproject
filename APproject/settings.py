@@ -26,7 +26,7 @@ CSRF_TRUSTED_ORIGINS = ['https://portfoliowizard.onrender.com']
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['portfoliowizard.onrender.com']
 
