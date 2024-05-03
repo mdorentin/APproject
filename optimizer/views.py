@@ -6,7 +6,7 @@ import numpy as np
 import yfinance as yf
 import datetime as dt
 
-from pypfopt import risk_models, expected_returns, objective_functions, HRPOpt, plotting
+from pypfopt import risk_models, expected_returns, objective_functions, HRPOpt
 from pypfopt.efficient_frontier import EfficientFrontier, EfficientCVaR
 from pypfopt.discrete_allocation import DiscreteAllocation
 
