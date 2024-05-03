@@ -22,6 +22,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-_g5!h8*o6xi#o*dvht#gk@z0m@q@!rknoqk5fe-l!8nv_g!7lw'
 
+CSRF_TRUSTED_ORIGINS = ['https://portfoliowizard.onrender.com/']
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
