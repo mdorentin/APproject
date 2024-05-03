@@ -8,6 +8,7 @@ import numpy as np
 
 from collections import OrderedDict
 
+<<<<<<< HEAD
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -43,6 +44,31 @@ class Testoptimizer(unittest.TestCase):
         self.risk_aversion = risk_aversion
         self.risk_free = risk_free
         self.money = money
+=======
+
+from django.core.cache import cache
+
+class Testoptimizer(unittest.TestCase):
+
+    def setUp(self):
+        data_df = cache.get('data_df')
+        if data_df is None:
+            data_df = pd.read_csv("optimizer/df3.csv")
+            cache.set('data_df', data_df, timeout=None)
+        ## Randomly select a few stocks (between 2 and 10) from the dataset.
+        self.stocks = random.sample(list(data_df.ticker),random.randint(5, 10))
+        self.optimization_method = random.choice(['equal', 'min_vol', 'min_cvar', 'max_quad', 'hrp'])
+        self.risk_aversion = random.randint(1, 10)
+        self.risk_free = random.randint(1, 6)
+        self.money = random.randint(10_000, 10_000_000)
+
+        print(f'Optimizer initialized with stocks: {self.stocks}')
+        print(f'Optimizer initialized with optimization method: {self.optimization_method}')
+        print(f'Optimizer initialized with risk aversion: {self.risk_aversion}')
+        print(f'Optimizer initialized with risk free rate: {self.risk_free}')
+        print(f'Optimizer initialized with money: {self.money}')
+
+>>>>>>> a26c3b33fdba4a7095a6ec7f7a577d75ab1aebd4
     
     def test_initializing(self):
         '''
@@ -149,6 +175,20 @@ class Testoptimizer(unittest.TestCase):
         discrete = optimizer.discrete_values(data, weights)
 
         self.assertTrue(discrete.values.dtype == 'int32') # Check if values are integers
+<<<<<<< HEAD
+=======
+
+        ## when a stock has no weight in the dataframe, it doesn't appear in the discrete, so we need to add it manually to test the function
+        discrete_values = pd.DataFrame(index=self.stocks)
+        discrete_values['shares'] = discrete
+        discrete_values = discrete_values.fillna(0).astype('int32')
+
+        self.assertIsInstance(discrete_values, pd.DataFrame) # Check if discrete is a pandas DataFrame
+        self.assertEqual(discrete_values.index.tolist(), self.stocks) # Check if index are the stocks
+        self.assertEqual(discrete_values.shape, (len(self.stocks),1)) # Check if shape of DataFrame is correct
+        self.assertTrue(discrete_values.values.dtype == 'int32') # Check if values are integers
+        
+>>>>>>> a26c3b33fdba4a7095a6ec7f7a577d75ab1aebd4
         
 class TestBacktester(unittest.TestCase):
 
@@ -159,6 +199,7 @@ class TestBacktester(unittest.TestCase):
             cache.set('data_df', data_df, timeout=None)
 
         ## Randomly select a few stocks (between 2 and 10) from the dataset.
+<<<<<<< HEAD
         self.stocks = stocks
         self.optimization_method = optimization_method
         self.rebalance_freq = rebalance_freq
@@ -166,12 +207,34 @@ class TestBacktester(unittest.TestCase):
         self.risk_free = risk_free
         self.money = money
         self.benchmark = benchmark
+=======
+        self.stocks = random.sample(list(data_df.ticker),random.randint(5, 10))
+        self.optimization_method = random.choice(['equal', 'min_vol', 'min_cvar', 'max_quad', 'hrp'])
+        self.rebalance_freq = random.choice([1, 2, 4])
+        self.risk_aversion = random.randint(1, 10)
+        self.risk_free = random.randint(1, 6)
+        self.money = random.randint(10_000, 10_000_000)
+        self.benchmark = random.choice(['SPY', 'IWM', 'VEA'])
+>>>>>>> a26c3b33fdba4a7095a6ec7f7a577d75ab1aebd4
         optimizer = Optimizer(self.stocks, self.optimization_method, self.risk_aversion, self.risk_free, self.money)
         self.data = optimizer.get_data()
         self.lookback = optimizer.get_lookback(self.data)
 
         backtester = Backtester(self.stocks, self.optimization_method, self.lookback, self.rebalance_freq, self.money, self.risk_aversion, self.risk_free, self.benchmark)
 
+<<<<<<< HEAD
+=======
+
+        print(f'backtester initialized with stocks: {self.stocks}')
+        print(f'backtester initialized with optimization method: {self.optimization_method}')
+        print(f'backtester initialized with rebalance frequency: {self.rebalance_freq}')
+        print(f'backtester initialized with risk aversion: {self.risk_aversion}')
+        print(f'backtester initialized with risk free rate: {self.risk_free}')
+        print(f'backtester initialized with money: {self.money}')
+        print(f'backtester initialized with benchmark: {self.benchmark}')
+        print(f'backtester initialized with lookback: {self.lookback}')
+
+>>>>>>> a26c3b33fdba4a7095a6ec7f7a577d75ab1aebd4
     def test_initializing(self):
         '''
         Test if the Backtester object and its parameters are initialized correctly.
@@ -230,7 +293,11 @@ class TestBacktester(unittest.TestCase):
         '''
         backtester = Backtester(self.stocks, self.optimization_method, self.lookback, self.rebalance_freq, self.money, self.risk_aversion, self.risk_free, self.benchmark)
         subframes = backtester.expanding_window(self.data)
+<<<<<<< HEAD
         weights_df = backtester.optimize_back(subframes)
+=======
+        weights_df = backtester.optimize_back(subframes).T.drop_duplicates().T
+>>>>>>> a26c3b33fdba4a7095a6ec7f7a577d75ab1aebd4
 
         self.assertIsInstance(weights_df, pd.DataFrame) # Check if weights_df is a pandas DataFrame
         self.assertFalse(weights_df.isnull().all().all()) # Check if DataFrame contains non-NaN values
@@ -314,6 +381,7 @@ class TestPlotter(unittest.TestCase):
             cache.set('data_df', self.data_df, timeout=None)
 
         ## Randomly select a few stocks (between 2 and 10) from the dataset.
+<<<<<<< HEAD
         self.stocks = stocks
         self.optimization_method = optimization_method
         self.rebalance_freq = rebalance_freq
@@ -321,6 +389,15 @@ class TestPlotter(unittest.TestCase):
         self.risk_free = risk_free
         self.money = money
         self.benchmark = benchmark
+=======
+        self.stocks = random.sample(list(self.data_df.ticker),random.randint(5, 10))
+        self.optimization_method = random.choice(['equal', 'min_vol', 'min_cvar', 'max_quad', 'hrp'])
+        self.rebalance_freq = random.choice([1, 2, 4])
+        self.risk_aversion = random.randint(1, 10)
+        self.risk_free = random.randint(1, 6)
+        self.money = random.randint(10_000, 10_000_000)
+        self.benchmark = random.choice(['SPY', 'IWM', 'VEA'])
+>>>>>>> a26c3b33fdba4a7095a6ec7f7a577d75ab1aebd4
         optimizer = Optimizer(self.stocks, self.optimization_method, self.risk_aversion, self.risk_free, self.money)
         self.data = optimizer.get_data()
         self.lookback = optimizer.get_lookback(self.data)
