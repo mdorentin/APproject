@@ -40,9 +40,7 @@ git clone https://github.com/mdorentin/APproject.git
 cd APproject
 pip install virtualenv
 virtualenv venv
-cd venv\Scripts
-activate
-cd ..\..
+venv\Scripts\activate
 pip install -r requirements.txt
 python manage.py runserver
 ```
