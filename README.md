@@ -1,7 +1,4 @@
 # PortfolioWizard
-**Author:** Dorentin Morina
-
-**Link:**: https://portfoliowizard.onrender.com/
 
 Capstone Project for the Advanced Programming Class @ HEC Lausanne
 
