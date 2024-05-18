@@ -267,7 +267,9 @@ class Backtester:
 
                 weights_df.append(weights)
                 
-            return pd.concat(weights_df, axis=1).fillna(0).T.drop_duplicates().T
+            weights_df = pd.concat(weights_df, axis=1)
+            weights_df = weights_df.loc[:, ~weights_df.columns.duplicated()]
+            return weights_df
         except Exception as e:
             print(f'An error occured while optimizing all the datasubframes: {e}')
             return None
