@@ -259,17 +259,18 @@ class Backtester:
             return None
             
         try:   
-            for data in df_list:
-                covmat = optimizer.get_covmat(data)
-                mu = optimizer.get_mu(data)
-                weights = optimizer.optimize(data, covmat, mu)
-                weights = pd.DataFrame(weights.items(), columns=['Ticker', data.index.max()]).set_index('Ticker')[data.index.max()]
+            for subframe in df_list:
+                covmat = optimizer.get_covmat(subframe)
+                mu = optimizer.get_mu(subframe)
+                weights = optimizer.optimize(subframe, covmat, mu)
+                weights = pd.DataFrame(weights.items(), columns=['Ticker', subframe.index.max()]).set_index('Ticker')[subframe.index.max()]
 
                 weights_df.append(weights)
                 
             weights_df = pd.concat(weights_df, axis=1)
             weights_df = weights_df.loc[:, ~weights_df.columns.duplicated()]
             return weights_df
+        
         except Exception as e:
             print(f'An error occured while optimizing all the datasubframes: {e}')
             return None
