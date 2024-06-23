@@ -25,7 +25,7 @@ PortfolioWizard is a user-friendly web application built on the Django framework
 
 ## Notable Packages
 
-Dillinger uses a number of open-source projects to work properly:
+PortfolioWizard uses a number of open-source projects to work properly:
 
 - [yfinance] - To import the historical data price.
 - [PyPortfolioOpt] - To perform the optimization.
